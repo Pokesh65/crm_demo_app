@@ -1,65 +1,17 @@
-import { useEffect, useState } from "react";
 import { FiX } from "react-icons/fi";
 
-const STATUS_OPTIONS = ["Active", "Inactive", "Pending"];
-
-const EMPTY_CUSTOMER = {
-    name: "",
-    email: "",
-    phone: "",
-    company: "",
-    location: "",
-    status: "Active",
-    assignedEmployee: "",
-};
-
-// Controlled modal form for creating or editing a customer.
-// `customer` is null for "add" mode, or an existing record for
-// "edit" mode. All state is local — the parent owns persistence.
-function CustomerForm({ customer, onSave, onClose }) {
-    const [formData, setFormData] = useState(EMPTY_CUSTOMER);
-    const [errors, setErrors] = useState({});
-
-    useEffect(() => {
-        setFormData(customer ? { ...EMPTY_CUSTOMER, ...customer } : EMPTY_CUSTOMER);
-        setErrors({});
-    }, [customer]);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
-        setErrors((prev) => ({ ...prev, [name]: "" }));
-    };
-
-    const validate = () => {
-        const next = {};
-        if (!formData.name.trim()) next.name = "Name is required";
-        if (!formData.email.trim()) {
-            next.email = "Email is required";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-            next.email = "Enter a valid email";
-        }
-        if (!formData.phone.trim()) next.phone = "Phone is required";
-        setErrors(next);
-        return Object.keys(next).length === 0;
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!validate()) return;
-
-        onSave({
-            ...formData,
-            id: customer?.id ?? crypto.randomUUID(),
-            createdDate: customer?.createdDate ?? new Date().toISOString(),
-        });
-    };
-
+function CustomerForm({
+    customer,
+    formData,
+    errors,
+    statusOptions,
+    onChange,
+    onSubmit,
+    onClose,
+}) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-
-                {/* Header */}
                 <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                     <h2 className="text-lg font-semibold text-gray-900">
                         {customer ? "Edit Customer" : "Add Customer"}
@@ -73,18 +25,52 @@ function CustomerForm({ customer, onSave, onClose }) {
                     </button>
                 </div>
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="max-h-[75vh] overflow-y-auto px-6 py-5">
+                <form onSubmit={onSubmit} className="max-h-[75vh] overflow-y-auto px-6 py-5">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field
+                            label="Name"
+                            name="name"
+                            value={formData.name}
+                            onChange={onChange}
+                            error={errors.name}
+                        />
+                        <Field
+                            label="Email"
+                            name="email"
+                            type="email"
+                            value={formData.email}
+                            onChange={onChange}
+                            error={errors.email}
+                        />
+                        <Field
+                            label="Phone"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={onChange}
+                            error={errors.phone}
+                        />
+                        <Field
+                            label="Company"
+                            name="company"
+                            value={formData.company}
+                            onChange={onChange}
+                            error={errors.company}
+                        />
+                        <Field
+                            label="Location"
+                            name="location"
+                            value={formData.location}
+                            onChange={onChange}
+                            error={errors.location}
+                        />
+                        <Field
+                            label="Assigned Employee"
+                            name="assignedEmployee"
+                            value={formData.assignedEmployee}
+                            onChange={onChange}
+                            error={errors.assignedEmployee}
+                        />
 
-                        <Field label="Name" name="name" value={formData.name} onChange={handleChange} error={errors.name} />
-                        <Field label="Email" name="email" type="email" value={formData.email} onChange={handleChange} error={errors.email} />
-                        <Field label="Phone" name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} />
-                        <Field label="Company" name="company" value={formData.company} onChange={handleChange} error={errors.company} />
-                        <Field label="Location" name="location" value={formData.location} onChange={handleChange} error={errors.location} />
-                        <Field label="Assigned Employee" name="assignedEmployee" value={formData.assignedEmployee} onChange={handleChange} error={errors.assignedEmployee} />
-
-                        {/* Status select */}
                         <div>
                             <label htmlFor="status" className="mb-1.5 block text-xs font-semibold text-gray-500">
                                 Status
@@ -93,10 +79,10 @@ function CustomerForm({ customer, onSave, onClose }) {
                                 id="status"
                                 name="status"
                                 value={formData.status}
-                                onChange={handleChange}
+                                onChange={onChange}
                                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500"
                             >
-                                {STATUS_OPTIONS.map((option) => (
+                                {statusOptions.map((option) => (
                                     <option key={option} value={option}>
                                         {option}
                                     </option>
@@ -105,7 +91,6 @@ function CustomerForm({ customer, onSave, onClose }) {
                         </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-4">
                         <button
                             type="button"
@@ -127,7 +112,6 @@ function CustomerForm({ customer, onSave, onClose }) {
     );
 }
 
-// Small local helper for the repeated label/input/error pattern.
 function Field({ label, name, type = "text", value, onChange, error }) {
     return (
         <div>

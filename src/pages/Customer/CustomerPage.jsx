@@ -18,12 +18,23 @@ import { getStoredData, saveStoredData } from "../../utils/utilityFunction";
 import { CUSTOMER_KEY } from "../../utils/commonNames";
 import { SEED_CUSTOMERS } from "../../utils/GlobalData";
 import { Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { addCustomer, updateCustomer } from "../../store/slices/CustomerSlice";
+import { selectAllCustomers } from "../../store/selectors/CustomerSelectors";
 
 
 
 const PAGE_SIZE = 8;
-
-
+const STATUS_OPTIONS = ["Active", "Inactive", "Pending"];
+const EMPTY_CUSTOMER = {
+    name: "",
+    email: "",
+    phone: "",
+    company: "",
+    location: "",
+    status: "Active",
+    assignedEmployee: "",
+};
 
 const statusStyles = {
     Active: "bg-green-100 text-green-700",
@@ -42,18 +53,14 @@ const statusDot = {
 
 function CustomerPage() {
     // ── Data (local state + localStorage, no Redux) ──────────
-    const [customers, setCustomers] = useState([...getStoredData(CUSTOMER_KEY), ...SEED_CUSTOMERS]);
+    const dispatch = useDispatch()
+    const currentCustomerList = useSelector(selectAllCustomers)
+    const [customers, setCustomers] = useState(currentCustomerList);
+
 
     useEffect(() => {
-
-        const unique = [...new Set(customers.map((item) => item.email))]
-        // const uqData = customers.filter(item => unique.indexOf(item?.email))
-        const uqData = [...new Map(customers.map((item) => [item.email, item])).values()];
-        console.log("Unique", unique, uqData)
-        saveStoredData(CUSTOMER_KEY, uqData)
-        setCustomers(uqData)
-
-    }, []);
+        setCustomers(currentCustomerList)
+    }, [currentCustomerList])
 
     console.log("All Customer", customers)
 
@@ -70,6 +77,36 @@ function CustomerPage() {
     const [editingCustomer, setEditingCustomer] = useState(null);
     const [viewingCustomer, setViewingCustomer] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null); // single id or "bulk"
+    const [formData, setFormData] = useState(EMPTY_CUSTOMER);
+    const [formErrors, setFormErrors] = useState({});
+
+    const resetCustomerForm = () => {
+        setFormData(EMPTY_CUSTOMER);
+        setFormErrors({});
+    };
+
+    const handleCustomerChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
+        setFormErrors((prev) => ({ ...prev, [name]: "" }));
+    };
+
+    const validateCustomerForm = (data) => {
+        const next = {};
+        if (!data.name.trim()) next.name = "Name is required";
+        if (!data.email.trim()) {
+            next.email = "Email is required";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
+            next.email = "Enter a valid email";
+        }
+        if (!data.phone.trim()) {
+            next.phone = "Phone is required";
+        } else if (!/^(?:\+91|0)?[6-9]\d{9}$/.test(data.phone.trim())) {
+            next.phone = "Enter a valid mobile number";
+        }
+        setFormErrors(next);
+        return Object.keys(next).length === 0;
+    };
 
     // Debounce search input → search
     useEffect(() => {
@@ -158,20 +195,31 @@ function CustomerPage() {
 
 
     // ── CRUD handlers ──────────────────────────────────────────
-    const handleSave = (customer) => {
-        // const customerDetails = getStoredData(CUSTOMER_KEY)
-        setCustomers((prev) => {
-            const isExist = prev.some((c) => c.id === customer.id)
+    const handleSave = (e) => {
+        e.preventDefault();
 
-            const result = isExist ? prev.map((c) => (c.id === customer.id ? customer : c))
-                : [customer, ...prev];
+        console.log("editingCustomer", editingCustomer)
 
-            saveStoredData(CUSTOMER_KEY, result)
+        if (!validateCustomerForm(formData)) return;
 
-            return result
-        });
+        let payload = {
+            ...formData,
+            id: editingCustomer?.id ?? crypto.randomUUID(),
+            createdDate: editingCustomer?.createdDate ?? new Date().toISOString(),
+        };
+
+        console.log("current payload", payload, editingCustomer)
+
+
+        if (editingCustomer?.id) {
+            dispatch(updateCustomer(payload));
+        } else {
+            dispatch(addCustomer({ ...payload, notes: [], activities: [] }));
+        }
+
         setShowForm(false);
         setEditingCustomer(null);
+        resetCustomerForm();
     };
 
     const confirmDelete = () => {
@@ -201,11 +249,15 @@ function CustomerPage() {
 
     const openAdd = () => {
         setEditingCustomer(null);
+        setFormData(EMPTY_CUSTOMER);
+        setFormErrors({});
         setShowForm(true);
     };
 
     const openEdit = (customer) => {
         setEditingCustomer(customer);
+        setFormData({ ...EMPTY_CUSTOMER, ...customer });
+        setFormErrors({});
         setShowForm(true);
     };
 
@@ -380,10 +432,15 @@ function CustomerPage() {
             {showForm && (
                 <CustomerForm
                     customer={editingCustomer}
-                    onSave={handleSave}
+                    formData={formData}
+                    errors={formErrors}
+                    statusOptions={STATUS_OPTIONS}
+                    onChange={handleCustomerChange}
+                    onSubmit={handleSave}
                     onClose={() => {
                         setShowForm(false);
                         setEditingCustomer(null);
+                        resetCustomerForm();
                     }}
                 />
             )}
